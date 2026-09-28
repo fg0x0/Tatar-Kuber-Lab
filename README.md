@@ -199,7 +199,7 @@ static scanner** олдог → `found_by=[checkov,kubescape,trivy]`, `confidenc
 
 1. **Demo** — clone хийгээд, scan хийж, нэг минутад дуусна (cluster хэрэггүй).
 2. **Regression** — `verify-lab` нь хүлээгдсэн control алга болох, эсвэл тоо өөрчлөгдвөл
-   шууд FAIL болно (ж: dedup эвдэрч 16 control → 8).
+   шууд FAIL болно (ж: dedup эвдэрч 19 control → 8).
 3. **CI** — push бүрт engine-ийг build хийж баталгаажуулна.
 4. **Benchmark** — Trivy vs Kubescape vs Checkov vs нэгтгэсэн TATAR-ийг харьцуулах нийтлэг суурь.
 
