@@ -18,29 +18,43 @@ That is the only entirely-English file in this repo.
 
 ---
 
-## The real gap here is not a file — it is the README's Mongolian half
+## Closed 2026-09-30 — the README's two halves are now symmetric
 
-`README.md` and `CONTRIBUTING.md` both carry a Mongolian half already, but the
-README's halves are **not** symmetric, and that asymmetry is recorded rather
-than hidden: `scripts/check-readme-parity.py` holds an `EN_ONLY_SECTIONS`
-allowlist naming five sections that exist only in English.
+`scripts/check-readme-parity.py` held an `EN_ONLY_SECTIONS` allowlist naming
+five sections that existed only in English, roughly 950 words. All five are now
+written and the allowlist is **empty**, so nothing is discounted and the parity
+check watches the whole file.
 
-| Section (English only) | Why it was left English |
+| Section | Written as |
 |---|---|
-| Pipeline this repo demonstrates | the diagram under it is language-neutral |
-| Full run (real scanners, local — no cluster) | maintainer workflow |
-| Live cluster (Kind) | maintainer workflow |
-| Notes | scanner version pins, upstream caveats |
-| License | licence text is English regardless |
+| Pipeline this repo demonstrates | Энэ repo-гийн харуулдаг pipeline — diagram included, with its two prose labels in Mongolian |
+| Full run (real scanners, local — no cluster) | Бүтэн ажиллалт (бодит scanner, локал — cluster хэрэггүй) |
+| Live cluster (Kind) | Амьд cluster (Kind) |
+| Notes | Тэмдэглэл |
+| License | Лиценз |
 
-Roughly **950 words** across those five. They are a deliberate choice, not an
-oversight — the Mongolian half is a quick start by design. Writing any of them
-in Mongolian is welcome; when one is written, **remove its name from
-`EN_ONLY_SECTIONS`** or the parity check will keep discounting it and stop
-noticing future drift in that section.
+`EN_ONLY_CODE_BLOCKS` dropped from 5 to **1**. The one left is the `Expected:`
+sample of `verify-lab` output under the 30-second demo: it is generated into the
+English half by `scripts/sync-readme-counts.sh`, which has no Mongolian marker,
+and the engine prints that table in whichever language it was asked for. A
+second copy would be a hand-maintained duplicate of generated text.
+
+**`License` was a judgement call**, and the answer was to write it. The section
+is one line (`Apache-2.0`), the licence text itself is English regardless, and
+`LICENSE` is the authority either way — so the Mongolian adds no information.
+It was written anyway for two reasons: a reader who reaches the bottom of the
+Mongolian half otherwise finds no licence statement at all, and leaving one name
+on the allowlist keeps one section permanently outside the parity check. An
+empty allowlist has no blind spot; a one-entry allowlist has one.
+
+The set and the constant both stay in the script. They are the honest place to
+record the next such decision, and the script already fails loudly when an entry
+names a section that no longer exists, so a stale allowlist cannot mask drift.
 
 ## If you translate one thing
 
-Nothing in this repo is urgent. It is a fixture corpus for Tatar-Kuber, read by
-maintainers rather than operators — put the time into Tatar-Shield's issue
-templates or Tatar-Relay's Burp inject guide first.
+Nothing in this repo is urgent — `CODE_OF_CONDUCT.md` above is the only file
+left, and it wants the official Contributor Covenant translation rather than a
+new one. It is a fixture corpus for Tatar-Kuber, read by maintainers rather than
+operators; put the time into Tatar-Shield's issue templates or Tatar-Relay's
+Burp inject guide first.

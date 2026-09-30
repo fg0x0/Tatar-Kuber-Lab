@@ -210,6 +210,18 @@ Apache-2.0
 [**TATAR-Kuber**](https://github.com/ochmunkh/tatar-kuber) engine-ийг турших, demo хийх,
 regression шалгах зориулалттай **эмзэг** ба **hardened** Kubernetes manifest-ийн цуглуулга.
 
+### Энэ repo-гийн харуулдаг pipeline
+
+```
+raw/                          .lab-out/                  normalized/
+ ├─ checkov.json      ─┐       scan-result.json  ────►     report.html
+ ├─ trivy.json        ─┤ ─►  (canonical + dedup +          report.json · tatar.sarif
+ ├─ kubescape.json    ─┤       risk + blind-shot)
+ └─ popeye.json       ─┘             │
+   (түүхий scanner гаралт)           ├─►  expected/expected-findings.json  (verify-lab)
+                                     └─►  normalized/tatar-findings.json   (finding тус бүрийн diff)
+```
+
 - `broken/` — аюулгүй байдлын control-уудыг зориудаар зөрчсөн
 - `fixed/` — hardening зөв хийсэн хувилбарууд. ТААМАГЛААГҮЙ, **хэмжсэн**: `fixed/` дээрх pin-тэй
   Checkov 3.3.8-ын гаралт (`raw-fixed/checkov.json` болгож commit хийсэн) ямар ч failed check
@@ -257,6 +269,51 @@ gitignore-д) руу бичигддэг тул ажиллуулсны дараа
 шалгалт (8-р шат) л алгасагдана, baseline-ыг canonical JSON биш мөр мөрөөр тулгана, мөн ажиллалт
 `[lab] DEGRADED` хэсгээр юуг алгассанаа яг нэрлэж дуусна.
 
+### Бүтэн ажиллалт (бодит scanner, локал — cluster хэрэггүй)
+
+Checkov ба Trivy нь **manifest файлыг** шууд шалгана. **Хувилбаруудыг заавал пиннэнэ**:
+`expected/` нь нэг ruleset дээрх яг тодорхой бүхэл тоонуудыг агуулдаг тул пиннээгүй
+`pip install checkov` нь үүнийг баримтжуулаагүй scanner хувилбарын baseline болгож чимээгүйхэн
+хувиргана.
+
+```bash
+pip install 'checkov==3.3.8'                       # raw/versions.json-той таарах ёстой
+checkov -d broken --framework kubernetes -o json > raw/checkov.json
+docker run --rm -v "$PWD:/w" -w /w aquasec/trivy:0.53.0 \
+  config broken --format json                    > raw/trivy.json
+./run-lab.sh          # ЗӨВХӨН шалгана — raw/-г хэзээ ч дахин үүсгэхгүй
+```
+
+Анхаарах зүйл: дээрх гараар бичсэн `checkov` мөр нь хэрэгслийн **тайраагүй** гаралтыг бичнэ —
+commit хийсэн `raw/checkov.json` дотор `null` байдаг guideline URL-уудыг дүүргэнэ гэсэн үг.
+`verify-lab` тэр чигээрээ давна (хэмжсэн: ижил 107 failed check → 69 finding / 20 control),
+харин 7-р шат нь **тоонд нөлөөлөхгүй** том baseline diff мэдээлнэ — 59 `references` мөр дээр
+2 `raw_bytes`. Тиймээс `--update-baseline`-тай дахин ажиллуулж, commit дотроо дурдана. Гараар
+бичсэн `trivy` мөр ч мөн адил. Доорх script нь commit хийсэн хэв маягийг хадгалдаг зам юм.
+
+Эсвэл pin-ийг script-ээр шударга байлгаж болно:
+
+```bash
+./scripts/regen-raw.sh            # broken/-оос raw/, fixed/-ээс raw-fixed/
+```
+
+`regen-raw.sh` нь пиннэсэн Checkov-ыг ажиллуулж (суусан хувилбар pin-тэй таарвал локалаар,
+эс бөгөөс `bridgecrew/checkov:3.3.8` image-ээр), `versions.json`-ыг гараар биш, хэрэгслийн
+өөрийнх нь `--version`-оос бичнэ — 0-р шатны шалгадаг `corpus_sha256`-ыг оруулаад. Pin-ээ барьж
+чадахгүй бол corpus-ыг дарж бичихээс **татгалзана** — `ALLOW_VERSION_BUMP=1` нь хувилбарын
+үсрэлтийг шинэ `expected/` тоонуудын хажууд зориудаар хийсэн commit болгоно.
+
+Popeye нь зөвхөн runtime-д ажилладаг (амьд cluster шаардана) — энд байгаа `raw/popeye.json` нь
+төлөөлөх жишээ.
+
+### Амьд cluster (Kind)
+
+```bash
+kind create cluster && kubectl create namespace production
+kubectl apply -f broken/
+# scanner-ийн гаралтыг цуглуулаад → tatar-kuber scan
+```
+
 ### Эмзэг manifest → хүлээгдэх canonical control <!-- counts:controls-mn -->(20)<!-- /counts:controls-mn -->
 
 | Файл | Хүлээгдэх TATAR control | Илрүүлэгч |
@@ -294,5 +351,23 @@ gitignore-д) руу бичигддэг тул ажиллуулсны дараа
 3. **CI** — push бүрт engine-ийг build хийж баталгаажуулна; долоо хоног тутмын cron бас
    ажилладаг тул engine талын өөрчлөлт дараагийн push хүртэл нуугдахгүй.
 4. **Benchmark** — Trivy vs Kubescape vs Checkov vs нэгтгэсэн TATAR-ийг харьцуулах нийтлэг суурь.
+
+### Тэмдэглэл
+
+`raw/checkov.json` ба `raw-fixed/checkov.json` нь **бодит Checkov 3.3.8**-ын гаралт, `broken/`-ийнх
+нь давтагдахуйц: Checkov 3.3.8-аар `./scripts/regen-raw.sh broken` ажиллуулбал ижил 107 failed
+check, ижил `result_hash` гарна (мөн commit хийсэн хувилбарт `null` байдаг guideline URL-уудыг
+нэмж дүүргэнэ). `trivy.json` / `kubescape.json` / `popeye.json` нь manifest-уудтай нийцсэн
+төлөөлөх жишээ — яг таг тэнцүүлэхийн тулд бодит хэрэгслээр нь дахин үүсгэнэ. Scanner-ийн rule
+ID-ууд нь ТҮР ЗУУРЫНХ; энэ lab тэдгээрийг шударга байлгана.
+
+Энэ baseline нь **TATAR-Kuber >= 1.0.3**-д хүчинтэй. Pin нь нэг л газар байна —
+`expected/expected-findings.json` (`"engine"`) — бөгөөд `run-lab.sh` тоо зөрсөнд итгэ гэж
+хэлэхээсээ *өмнө* түүнийг шалгадаг тул "миний engine хуучирсан" ба "lab буруу" хоёр ижил
+харагдахаа болино.
+
+### Лиценз
+
+Apache-2.0
 
 **Зохиогч:** Enkhbat.O — Security Analyst

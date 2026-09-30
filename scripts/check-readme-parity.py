@@ -36,24 +36,25 @@ LABELS = {
     "code_blocks": "code blocks",
 }
 
-# Sections that deliberately exist in English only, with the reason. The
-# Mongolian half is a QUICK START -- demo, expected controls, why the lab
-# exists -- while the operational detail stays in English. That is a choice, so
-# it is recorded here rather than reported as drift every run. Tatar-Kuber's own
-# parity test keeps the same kind of allowlist.
+# Sections that deliberately exist in English only, with the reason. Adding a
+# name here is a decision that the section needs no Mongolian counterpart. If it
+# DOES need one, write the Mongolian instead -- never machine-translate it.
 #
-# Adding a name here is a decision that the section needs no Mongolian
-# counterpart. If it DOES need one, write the Mongolian instead -- never
-# machine-translate it.
-EN_ONLY_SECTIONS = {
-    "Pipeline this repo demonstrates",   # the diagram below it is language-neutral
-    "Full run (real scanners, local — no cluster)",  # maintainer workflow
-    "Live cluster (Kind)",               # maintainer workflow
-    "Notes",                             # scanner version pins, upstream caveats
-    "License",                           # licence text is English regardless
-}
-# Fenced blocks inside those sections, likewise not expected on the Mongolian side.
-EN_ONLY_CODE_BLOCKS = 5
+# EMPTY as of 2026-09-30. The Mongolian half used to be a QUICK START -- demo,
+# expected controls, why the lab exists -- with the operational detail left in
+# English: the pipeline diagram, the full local run, the Kind cluster, the notes
+# and the licence. All five are now written, so nothing is discounted and the
+# checker watches the whole file. The set stays here because it is the honest
+# place to record the NEXT such decision; an entry naming a section that no
+# longer exists is caught below, so it cannot silently mask real drift.
+EN_ONLY_SECTIONS = set()
+
+# Fenced blocks not expected on the Mongolian side. One: the "Expected:" sample
+# of verify-lab output under "30-second demo". It is generated into the English
+# half by scripts/sync-readme-counts.sh, which has no Mongolian marker, and the
+# engine prints that table in whichever language it was asked for -- so a second
+# copy would be a hand-maintained duplicate of generated text.
+EN_ONLY_CODE_BLOCKS = 1
 
 
 def measure(body: str) -> dict:
