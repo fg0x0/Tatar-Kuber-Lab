@@ -123,7 +123,7 @@ Heads-up: that hand-rolled `checkov` line writes the tool's **untrimmed** output
 the guideline URLs the committed `raw/checkov.json` carries as `null`. `verify-lab` still passes
 (measured: the same 107 failed checks → 69 findings / 20 controls), but step 7 then reports a
 large, **count-neutral** baseline diff — 59 `references` lines plus 2 `raw_bytes` — so re-run with
-`UPDATE_BASELINE=1` and say so in the commit. A hand-rolled `trivy` line is the same story. The
+`--update-baseline` and say so in the commit. A hand-rolled `trivy` line is the same story. The
 script below is the path that preserves the committed house style.
 
 Or let the script keep the pin honest for you:

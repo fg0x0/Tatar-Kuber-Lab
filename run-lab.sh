@@ -4,18 +4,48 @@
 #   go install github.com/ochmunkh/tatar-kuber/cmd/tatar-kuber@latest
 #   ./run-lab.sh            # English
 #   ./run-lab.sh mn         # Mongolian report
-#   UPDATE_BASELINE=1 ./run-lab.sh    # adopt THIS run as the baseline — then read `git diff`
+#   ./run-lab.sh --update-baseline    # adopt THIS run as the baseline — then read `git diff`
 # The canonical registry is embedded in the binary, so no engine checkout is needed.
 # (Override with TATAR_REGISTRY=/path/to/schema/canonical-controls.yaml if you want.)
 # Nothing tracked is written: the scan goes to .lab-out/ and the reports to normalized/
 # (report.html, report.json, tatar.sarif — all gitignored), so `git status` stays clean
-# unless you pass UPDATE_BASELINE=1.
+# unless you pass --update-baseline.
 # `tatar-kuber` is the ONLY hard requirement. jq is a fast path, not a dependency: without it
 # steps 0 and 7 use coreutils fallbacks and step 8 is skipped — the run says so as it goes and
 # again in a summary at the end, so a weaker run can never look like a full one.
 set -euo pipefail
 cd "$(dirname "$0")"
-LANG_OPT="${1:-en}"
+
+# --------------------------------------------------------------------------
+# Arguments. The language used to be read straight off $1, so there was nowhere
+# to put a flag; adopting a new baseline was an environment variable only,
+# which is easy to miss in the help text and easy to set by accident.
+# --------------------------------------------------------------------------
+LANG_OPT=en
+UPDATE_BASELINE="${UPDATE_BASELINE:-}"   # legacy env form still honoured
+usage() {
+  cat <<'USAGE'
+Usage: ./run-lab.sh [en|mn] [--update-baseline]
+
+  en | mn             language for the rendered report (default: en)
+  --update-baseline   adopt THIS run as the committed baseline: rewrite
+                      normalized/tatar-findings.json and regenerate the derived
+                      fields of expected/expected-findings.json, then review
+                      `git diff` before committing.
+  -h | --help         this message
+
+  UPDATE_BASELINE=1 ./run-lab.sh   is still accepted and means the same thing.
+USAGE
+}
+while [ $# -gt 0 ]; do
+  case "$1" in
+    en|mn)                  LANG_OPT="$1" ;;
+    --update-baseline)      UPDATE_BASELINE=1 ;;
+    -h|--help)              usage; exit 0 ;;
+    *) echo "run-lab: unknown argument '$1'" >&2; usage >&2; exit 2 ;;
+  esac
+  shift
+done
 REG_FLAG=""
 [ -n "${TATAR_REGISTRY:-}" ] && REG_FLAG="--registry ${TATAR_REGISTRY}"
 
@@ -148,7 +178,13 @@ case "${GATE_RC}" in
 esac
 
 echo; echo "== 5. verify-lab — vulnerable corpus (broken/) regression baseline (MUST pass) =="
-tatar-kuber verify-lab --input "${OUT}/scan-result.json" --expected "${EXPECTED}" || fail "verify-lab FAILED against ${EXPECTED}."
+tatar-kuber verify-lab --input "${OUT}/scan-result.json" --expected "${EXPECTED}" || {
+  if [ -n "${UPDATE_BASELINE:-}" ]; then
+    echo "   ~  mismatch ignored: --update-baseline is about to regenerate ${EXPECTED} (step 7b)."
+  else
+    fail "verify-lab FAILED against ${EXPECTED}."
+  fi
+}
 
 echo; echo "== 6. verify-lab — hardened corpus (fixed/), measured, not assumed =="
 # What this measures: the COMMITTED Checkov 3.3.8 output for fixed/ (raw-fixed/), re-normalised
@@ -156,8 +192,13 @@ echo; echo "== 6. verify-lab — hardened corpus (fixed/), measured, not assumed
 # scanner is installed here. The fixed/ <-> raw-fixed/ fingerprint in step 0 is what stops
 # that committed output from silently describing a different fixed/ than the one on disk.
 tatar-kuber scan --raw-dir raw-fixed --cluster tatar-kuber-lab-fixed --lang en ${REG_FLAG} -o "${OUT_FIXED}"
-tatar-kuber verify-lab --input "${OUT_FIXED}/scan-result.json" --expected expected/expected-fixed.json \
-  || fail "verify-lab FAILED against expected/expected-fixed.json — the hardened corpus moved."
+tatar-kuber verify-lab --input "${OUT_FIXED}/scan-result.json" --expected expected/expected-fixed.json || {
+  if [ -n "${UPDATE_BASELINE:-}" ]; then
+    echo "   ~  mismatch ignored: --update-baseline is about to regenerate expected/expected-fixed.json (step 7b)."
+  else
+    fail "verify-lab FAILED against expected/expected-fixed.json — the hardened corpus moved."
+  fi
+}
 
 echo; echo "== 7. baseline — per-finding diff against the committed ${GOLDEN} =="
 # Stripped from BOTH sides: fields that change on every run. result_hash is deliberately KEPT —
@@ -215,13 +256,29 @@ else
   fi
   if [ -n "${UPDATE_BASELINE:-}" ]; then
     cp -f "${OUT}/scan-result.json" "${GOLDEN}"
-    echo "   !  UPDATE_BASELINE=1 — ${GOLDEN} rewritten from this run."
+    echo "   !  --update-baseline — ${GOLDEN} rewritten from this run."
     echo "      Now READ \`git diff ${GOLDEN}\` and justify every line before committing it."
     echo "      A count that moved WITHOUT a manifest or raw/ change is an engine regression:"
     echo "      report it in Tatar-Kuber, do not absorb it here."
   else
-    fail "output drifted from ${GOLDEN}. If the change is intended, re-run with UPDATE_BASELINE=1 and review the diff."
+    fail "output drifted from ${GOLDEN}. If the change is intended, re-run with --update-baseline and review the diff."
   fi
+fi
+
+echo; echo "== 7b. expected/ — the DERIVED fields are generated from this scan, not hand-typed =="
+if [ "${HAVE_JQ}" = 0 ]; then
+  echo "   ~   SKIPPED — ./scripts/sync-expected.sh needs jq."
+  degraded "step 7b (expected-findings.json derived-field check) did not run"
+elif [ -n "${UPDATE_BASELINE:-}" ]; then
+  ./scripts/sync-expected.sh "${OUT}/scan-result.json"
+  ./scripts/sync-expected.sh "${OUT_FIXED}/scan-result.json" expected/expected-fixed.json
+  echo "      Read \`git diff ${EXPECTED}\` before committing: a count that moved"
+  echo "      WITHOUT a manifest or raw/ change is an engine regression."
+elif ./scripts/sync-expected.sh "${OUT}/scan-result.json" --check \
+     && ./scripts/sync-expected.sh "${OUT_FIXED}/scan-result.json" expected/expected-fixed.json --check; then
+  echo "   ok  total, counts and controls match the scan (both corpora)"
+else
+  fail "${EXPECTED} no longer matches the scan. If the change is intended, re-run with --update-baseline."
 fi
 
 echo; echo "== 8. docs — README badges/counts and the gate policy match ${EXPECTED} =="

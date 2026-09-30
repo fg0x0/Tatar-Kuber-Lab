@@ -38,7 +38,7 @@ separate, version-pinned step.
    [Tatar-Kuber](https://github.com/ochmunkh/Tatar-Kuber); do **not** absorb it into `expected/`.
 4. Only once you can explain every line of that diff, adopt it:
    ```bash
-   UPDATE_BASELINE=1 ./run-lab.sh  # rewrites normalized/tatar-findings.json
+   ./run-lab.sh --update-baseline  # rewrites normalized/tatar-findings.json
    git diff normalized/tatar-findings.json
    ```
    Then update `expected/expected-findings.json` (controls + counts), and
@@ -95,7 +95,7 @@ baseline-уудтай тулгаж шалгаад, зөрөө гарвал non-z
    regression байж мэднэ: [Tatar-Kuber](https://github.com/ochmunkh/Tatar-Kuber)-т мэдэгдэх ба
    `expected/` руу шингээж болохгүй.
 4. Diff-ийн мөр бүрийг тайлбарлаж чадсаны дараа л батална:
-   `UPDATE_BASELINE=1 ./run-lab.sh` → `git diff normalized/tatar-findings.json`-ыг УНШИНА →
+   `./run-lab.sh --update-baseline` → `git diff normalized/tatar-findings.json`-ыг УНШИНА →
    `expected/expected-findings.json` (мөн `fixed/` хөдөлсөн бол `expected/expected-fixed.json`).
 5. README-гийн тоонуудыг гараар БИЧИХГҮЙ: `./scripts/sync-readme-counts.sh` (badge, хоёр хэлний
    хэсэг, gate бодлогын тайлбар). Алгасвал `./run-lab.sh` унана. Тоонууд нэг эх сурвалжаас
